@@ -10,6 +10,8 @@ const PesanKontak = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedMessage, setSelectedMessage] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [replyLoading, setReplyLoading] = useState(false);
 
   useEffect(() => {
     fetchMessages();
@@ -68,6 +70,25 @@ const PesanKontak = () => {
       setShowDetailModal(false);
     } catch (error) {
       toast.error('Gagal memperbarui status');
+    }
+  };
+
+  const handleReply = async () => {
+    if (!replyText.trim()) {
+      toast.error('Balasan tidak boleh kosong');
+      return;
+    }
+    setReplyLoading(true);
+    try {
+      await apiService.replyKontak(selectedMessage.id, replyText);
+      toast.success('Balasan berhasil dikirim ke email pengirim');
+      setShowDetailModal(false);
+      setReplyText('');
+      fetchMessages();
+    } catch (error) {
+      toast.error('Gagal mengirim balasan');
+    } finally {
+      setReplyLoading(false);
     }
   };
 
@@ -282,12 +303,22 @@ const PesanKontak = () => {
 
                   <div className="flex gap-3 pt-4 border-t">
                     {selectedMessage.status !== 'dibalas' && (
-                      <button
-                        onClick={() => handleMarkAsReplied(selectedMessage.id)}
-                        className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                      >
-                        Tandai Dibalas
-                      </button>
+                      <>
+                        <textarea
+                          className="w-full border rounded-lg p-2 mb-2"
+                          rows={3}
+                          placeholder="Tulis balasan untuk pengirim..."
+                          value={replyText}
+                          onChange={e => setReplyText(e.target.value)}
+                        />
+                        <button
+                          onClick={handleReply}
+                          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-60"
+                          disabled={replyLoading}
+                        >
+                          {replyLoading ? 'Mengirim...' : 'Kirim Balasan'}
+                        </button>
+                      </>
                     )}
                     <button
                       onClick={() => setShowDetailModal(false)}

@@ -244,6 +244,18 @@ class ApiService {
       method: 'DELETE'
     });
   }
+
+  // Membalas pesan kontak
+  async replyKontak(id, balasan) {
+    return this.request(`/kontak/${id}/reply`, {
+      method: 'POST',
+      body: JSON.stringify({ balasan }),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      }
+    });
+  }
 }
 
 export default new ApiService();
