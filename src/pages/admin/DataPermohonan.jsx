@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, Eye, Download, MoreVertical, CheckCircle, Clock, XCircle, X, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
 import ApiService from '../../services/apiService';
+import { apiConfig } from '../../config/api';
 import Pagination from '../../components/Pagination';
 
 const DataPermohonan = () => {
@@ -33,13 +34,15 @@ const DataPermohonan = () => {
   const [newStatus, setNewStatus] = useState('');
   const [catatan, setCatatan] = useState('');
   const [updating, setUpdating] = useState(false);
-
   const handleViewFile = async (berkasId, namaFile) => {
     try {
       const token = localStorage.getItem('auth_token');
       
+      // Remove /api from baseURL since it's already included
+      const baseUrl = apiConfig.baseURL.replace('/api', '');
+      
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/berkas/download/${berkasId}`,
+        `${baseUrl}/api/berkas/download/${berkasId}`,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
