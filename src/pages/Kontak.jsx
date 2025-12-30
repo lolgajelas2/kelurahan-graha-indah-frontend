@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { MapPin, Phone, Mail, Clock, Send, MessageSquare } from 'lucide-react';
+import { MapPin, Phone, Mail, Clock, Send, MessageSquare, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiService from '../services/apiService';
+import ValidationError from '../components/ValidationError';
 
 const Kontak = () => {
   const [formData, setFormData] = useState({
@@ -12,6 +13,7 @@ const Kontak = () => {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -19,23 +21,74 @@ const Kontak = () => {
       ...prev,
       [name]: value
     }));
-  };
 
+    // Real-time validation
+    let error = '';
+    if (name === 'nama') {
+      if (value && !/^[a-zA-Z\s]+$/.test(value)) {
+        error = 'Nama hanya boleh berisi huruf dan spasi';
+      }
+    } else if (name === 'email') {
+      if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        error = 'Format email tidak valid';
+      }
+    } else if (name === 'subjek') {
+      if (value && value.length < 5) {
+        error = 'Subjek minimal 5 karakter';
+      } else if (value && value.length > 255) {
+        error = 'Subjek maksimal 255 karakter';
+      }
+    } else if (name === 'pesan') {
+      if (value && value.length < 10) {
+        error = 'Pesan minimal 10 karakter';
+      } else if (value && value.length > 2000) {
+        error = 'Pesan maksimal 2000 karakter';
+      }
+    }
+
+    setValidationErrors(prev => ({
+      ...prev,
+      [name]: error
+    }));
+  };
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Check for validation errors
+    const hasErrors = Object.values(validationErrors).some(error => error !== '');
+    if (hasErrors) {
+      toast.error('Mohon perbaiki data yang tidak valid');
+      return;
+    }
+    
     setIsSubmitting(true);
 
     try {
       await apiService.sendKontak(formData);
       setSubmitSuccess(true);
       setFormData({ nama: '', email: '', subjek: '', pesan: '' });
+      setValidationErrors({});
       toast.success('Pesan berhasil dikirim! Kami akan segera menghubungi Anda.');
 
       setTimeout(() => {
         setSubmitSuccess(false);
       }, 5000);
     } catch (error) {
-      toast.error(error.message || 'Gagal mengirim pesan');
+      // Parse backend validation errors
+      let errorMsg = error.message || 'Gagal mengirim pesan';
+      
+      // Handle validation errors from backend
+      if (error.errors && typeof error.errors === 'object') {
+        const firstError = Object.values(error.errors)[0];
+        errorMsg = Array.isArray(firstError) ? firstError[0] : firstError;
+      }
+      
+      // Handle rate limit errors
+      if (errorMsg.includes('Terlalu banyak')) {
+        toast.error(errorMsg, { duration: 5000 });
+      } else {
+        toast.error(errorMsg);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -139,9 +192,7 @@ const Kontak = () => {
                     </div>
                   </div>
                 </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-6">
+              )}              <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -152,9 +203,13 @@ const Kontak = () => {
                       name="nama"
                       value={formData.nama}
                       onChange={handleInputChange}
-                      className="input-field"
+                      className={`input-field ${
+                        validationErrors.nama ? 'border-red-500' : ''
+                      }`}
+                      placeholder="Masukkan nama lengkap"
                       required
                     />
+                    <ValidationError error={validationErrors.nama} />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -165,9 +220,13 @@ const Kontak = () => {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="input-field"
+                      className={`input-field ${
+                        validationErrors.email ? 'border-red-500' : ''
+                      }`}
+                      placeholder="nama@email.com"
                       required
                     />
+                    <ValidationError error={validationErrors.email} />
                   </div>
                 </div>
 
@@ -180,10 +239,16 @@ const Kontak = () => {
                     name="subjek"
                     value={formData.subjek}
                     onChange={handleInputChange}
-                    className="input-field"
-                    placeholder="Topik pesan Anda"
+                    className={`input-field ${
+                      validationErrors.subjek ? 'border-red-500' : ''
+                    }`}
+                    placeholder="Topik pesan Anda (min. 5 karakter)"
                     required
                   />
+                  <ValidationError error={validationErrors.subjek} />
+                  <p className="mt-1 text-xs text-gray-500">
+                    {formData.subjek.length}/255 karakter
+                  </p>
                 </div>
 
                 <div>
@@ -195,10 +260,15 @@ const Kontak = () => {
                     value={formData.pesan}
                     onChange={handleInputChange}
                     rows="5"
-                    className="input-field"
-                    placeholder="Tulis pesan Anda di sini..."
+                    className={`input-field ${
+                      validationErrors.pesan ? 'border-red-500' : ''
+                    }`}
+                    placeholder="Tulis pesan Anda di sini... (min. 10 karakter)"
                     required
                   />
+                  <ValidationError error={validationErrors.pesan} />                  <p className="mt-1 text-xs text-gray-500">
+                    {formData.pesan.length}/2000 karakter
+                  </p>
                 </div>
 
                 <div className="flex justify-end">

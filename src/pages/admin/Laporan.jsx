@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Download, FileText, Calendar, Filter } from 'lucide-react';
+import { Download, FileText, Calendar, Filter, FileSpreadsheet } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiService from '../../services/apiService';
 
@@ -19,7 +19,7 @@ const Laporan = () => {
     }));
   };
 
-  const handleExportCSV = async () => {
+  const handleExportExcel = async () => {
     if (!dateRange.start || !dateRange.end) {
       toast.error('Pilih rentang tanggal terlebih dahulu');
       return;
@@ -27,93 +27,21 @@ const Laporan = () => {
 
     setLoading(true);
     try {
-      let data = [];
+      await apiService.exportPermohonanExcel({
+        start_date: dateRange.start,
+        end_date: dateRange.end,
+        status: status !== 'all' ? status : undefined
+      });
       
-      if (reportType === 'permohonan') {
-        const response = await apiService.getPermohonan();
-        data = response.data.data || response.data || [];
-        
-        // Filter by date
-        data = data.filter(item => {
-          const itemDate = new Date(item.created_at);
-          return itemDate >= new Date(dateRange.start) && itemDate <= new Date(dateRange.end);
-        });
-
-        // Filter by status
-        if (status !== 'all') {
-          data = data.filter(item => item.status === status);
-        }
-
-        // Convert to CSV
-        const headers = ['No. Registrasi', 'Nama', 'NIK', 'Layanan', 'Status', 'Tanggal'];
-        const rows = data.map(item => [
-          item.nomor_registrasi || '-',
-          item.nama,
-          item.nik,
-          item.layanan?.nama || '-',
-          item.status,
-          new Date(item.created_at).toLocaleDateString('id-ID')
-        ]);
-
-        downloadCSV('Laporan_Permohonan', headers, rows);
-      } else if (reportType === 'layanan') {
-        const response = await apiService.getLayanan();
-        data = response.data || [];
-
-        const headers = ['Nama Layanan', 'Kategori', 'Waktu Proses', 'Biaya', 'Status'];
-        const rows = data.map(item => [
-          item.nama,
-          item.kategori,
-          item.waktu_proses,
-          item.biaya,
-          item.status
-        ]);
-
-        downloadCSV('Laporan_Layanan', headers, rows);
-      } else if (reportType === 'pengguna') {
-        const response = await apiService.getAdminUsers();
-        data = response.data || [];
-
-        const headers = ['Nama', 'Username', 'Email', 'Role', 'Status'];
-        const rows = data.map(item => [
-          item.name,
-          item.username,
-          item.email,
-          item.role,
-          item.status
-        ]);
-
-        downloadCSV('Laporan_Pengguna', headers, rows);
-      }
-
-      toast.success('Laporan berhasil diunduh');
+      toast.success('Excel berhasil diunduh');
     } catch (error) {
-      toast.error('Gagal mengunduh laporan: ' + error.message);
+      toast.error('Gagal mengunduh Excel: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const downloadCSV = (filename, headers, rows) => {
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
-
-    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute('href', url);
-    link.setAttribute('download', `${filename}_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handlePrintReport = async () => {
+  const handleExportPDF = async () => {
     if (!dateRange.start || !dateRange.end) {
       toast.error('Pilih rentang tanggal terlebih dahulu');
       return;
@@ -121,88 +49,15 @@ const Laporan = () => {
 
     setLoading(true);
     try {
-      let data = [];
-      let title = '';
-
-      if (reportType === 'permohonan') {
-        const response = await apiService.getPermohonan();
-        data = response.data.data || response.data || [];
-        
-        data = data.filter(item => {
-          const itemDate = new Date(item.created_at);
-          return itemDate >= new Date(dateRange.start) && itemDate <= new Date(dateRange.end);
-        });
-
-        if (status !== 'all') {
-          data = data.filter(item => item.status === status);
-        }
-
-        title = 'Laporan Data Permohonan';
-      }
-
-      // Create print window
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <title>${title}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { text-align: center; }
-            .info { margin: 20px 0; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f3f4f6; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f9fafb; }
-            @media print {
-              button { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <h1>${title}</h1>
-          <div class="info">
-            <p><strong>Periode:</strong> ${new Date(dateRange.start).toLocaleDateString('id-ID')} - ${new Date(dateRange.end).toLocaleDateString('id-ID')}</p>
-            <p><strong>Total Data:</strong> ${data.length}</p>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>No</th>
-                <th>No. Registrasi</th>
-                <th>Nama</th>
-                <th>NIK</th>
-                <th>Layanan</th>
-                <th>Status</th>
-                <th>Tanggal</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${data.map((item, index) => `
-                <tr>
-                  <td>${index + 1}</td>
-                  <td>${item.nomor_registrasi || '-'}</td>
-                  <td>${item.nama}</td>
-                  <td>${item.nik}</td>
-                  <td>${item.layanan?.nama || '-'}</td>
-                  <td>${item.status}</td>
-                  <td>${new Date(item.created_at).toLocaleDateString('id-ID')}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <button onclick="window.print()" style="margin-top: 20px; padding: 10px 20px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer;">
-            Cetak Laporan
-          </button>
-        </body>
-        </html>
-      `);
-      printWindow.document.close();
+      await apiService.exportPermohonanPdf({
+        start_date: dateRange.start,
+        end_date: dateRange.end,
+        status: status !== 'all' ? status : undefined
+      });
       
-      toast.success('Jendela print telah dibuka');
+      toast.success('PDF berhasil diunduh');
     } catch (error) {
-      toast.error('Gagal membuat laporan: ' + error.message);
+      toast.error('Gagal mengunduh PDF: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -294,25 +149,25 @@ const Laporan = () => {
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button
-                  onClick={handleExportCSV}
-                  disabled={loading}
+                  onClick={handleExportExcel}
+                  disabled={loading || reportType !== 'permohonan'}
                   className="flex items-center justify-center gap-3 px-6 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                 >
-                  <Download className="h-5 w-5" />
+                  <FileSpreadsheet className="h-5 w-5" />
                   <div className="text-left">
-                    <div className="font-semibold">Download CSV</div>
+                    <div className="font-semibold">Download Excel</div>
                     <div className="text-sm opacity-90">Format spreadsheet</div>
                   </div>
                 </button>
 
                 <button
-                  onClick={handlePrintReport}
+                  onClick={handleExportPDF}
                   disabled={loading || reportType !== 'permohonan'}
-                  className="flex items-center justify-center gap-3 px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  className="flex items-center justify-center gap-3 px-6 py-4 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                 >
                   <FileText className="h-5 w-5" />
                   <div className="text-left">
-                    <div className="font-semibold">Cetak PDF</div>
+                    <div className="font-semibold">Download PDF</div>
                     <div className="text-sm opacity-90">Format printable</div>
                   </div>
                 </button>
@@ -330,9 +185,11 @@ const Laporan = () => {
               <div className="mt-8 p-4 bg-blue-50 border border-blue-200 rounded-lg">
                 <h4 className="font-semibold text-blue-900 mb-2">Informasi</h4>
                 <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• File CSV dapat dibuka di Excel atau Google Sheets</li>
-                  <li>• Cetak PDF hanya tersedia untuk laporan permohonan</li>
+                  <li>• File Excel (.xlsx) dapat dibuka di Microsoft Excel atau Google Sheets</li>
+                  <li>• File PDF cocok untuk dicetak atau disimpan sebagai arsip</li>
+                  <li>• Export hanya tersedia untuk laporan permohonan</li>
                   <li>• Pastikan rentang tanggal sudah dipilih sebelum export</li>
+                  <li>• Filter status akan diterapkan pada hasil export</li>
                 </ul>
               </div>
             </div>

@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, X, CheckCircle, AlertCircle, FileText, Image as ImageIcon } from 'lucide-react';
 import toast from 'react-hot-toast';
 import apiService from '../services/apiService';
+import ValidationError from '../components/ValidationError';
 
 const FormPermohonan = () => {
   const { serviceId } = useParams();
@@ -55,7 +56,6 @@ const FormPermohonan = () => {
       setLoading(false);
     }
   };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -65,21 +65,46 @@ const FormPermohonan = () => {
 
     // Real-time validation
     let error = '';
-    if (name === 'nik') {
+    if (name === 'nama') {
+      if (value && !/^[a-zA-Z\s]+$/.test(value)) {
+        error = 'Nama hanya boleh berisi huruf dan spasi';
+      }
+    } else if (name === 'nik') {
       if (value && !/^\d{16}$/.test(value)) {
         error = 'NIK harus 16 digit angka';
+      }
+    } else if (name === 'tempat_lahir') {
+      if (value && !/^[a-zA-Z\s]+$/.test(value)) {
+        error = 'Tempat lahir hanya boleh berisi huruf dan spasi';
       }
     } else if (name === 'email') {
       if (value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
         error = 'Format email tidak valid';
       }
     } else if (name === 'no_hp') {
-      if (value && !/^(\+62|62|0)[0-9]{9,12}$/.test(value)) {
-        error = 'Nomor HP tidak valid (08xx atau +628xx)';
+      if (value && !/^(\+62|62|0)[0-9]{9,13}$/.test(value)) {
+        error = 'Nomor HP tidak valid (contoh: 081234567890)';
+      }
+    } else if (name === 'rt' || name === 'rw') {
+      if (value && !/^\d{1,3}$/.test(value)) {
+        error = 'Hanya boleh berisi angka, maksimal 3 digit';
       }
     } else if (name === 'tanggal_lahir') {
-      if (value && new Date(value) > new Date()) {
-        error = 'Tanggal lahir tidak boleh di masa depan';
+      if (value) {
+        const birthDate = new Date(value);
+        const today = new Date();
+        
+        if (birthDate > today) {
+          error = 'Tanggal lahir tidak boleh di masa depan';
+        } else {
+          // Calculate age
+          const age = Math.floor((today - birthDate) / (365.25 * 24 * 60 * 60 * 1000));
+          if (age < 17) {
+            error = 'Usia minimal 17 tahun untuk mengajukan permohonan';
+          } else if (age > 150) {
+            error = 'Tanggal lahir tidak valid';
+          }
+        }
       }
     }
 
@@ -117,7 +142,6 @@ const FormPermohonan = () => {
       return newFiles;
     });
   };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -164,9 +188,24 @@ const FormPermohonan = () => {
       }, 5000);
 
     } catch (error) {
-      const errorMsg = error.message || 'Gagal mengajukan permohonan';
+      // Parse backend validation errors
+      let errorMsg = error.message || 'Gagal mengajukan permohonan';
+      
+      // Handle validation errors from backend
+      if (error.errors && typeof error.errors === 'object') {
+        // Display first error from backend
+        const firstError = Object.values(error.errors)[0];
+        errorMsg = Array.isArray(firstError) ? firstError[0] : firstError;
+      }
+      
+      // Handle rate limit errors
+      if (errorMsg.includes('Terlalu banyak')) {
+        toast.error(errorMsg, { duration: 5000 });
+      } else {
+        toast.error(errorMsg);
+      }
+      
       setError(errorMsg);
-      toast.error(errorMsg);
     } finally {
       setSubmitting(false);
     }

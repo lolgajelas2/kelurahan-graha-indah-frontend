@@ -1,7 +1,6 @@
 import { apiConfig, getAuthHeaders } from '../config/api';
 
-class ApiService {
-  async request(endpoint, options = {}) {
+class ApiService {  async request(endpoint, options = {}) {
     const url = `${apiConfig.baseURL}${endpoint}`;
     const config = {
       ...options,
@@ -24,12 +23,22 @@ class ApiService {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Something went wrong');
+        // Create error object with all details
+        const error = new Error(data.message || 'Something went wrong');
+        error.status = response.status;
+        error.errors = data.errors || null;
+        error.data = data;
+        throw error;
       }
 
       return data;
     } catch (error) {
-      throw error;
+      // If it's already our custom error, just throw it
+      if (error.status) {
+        throw error;
+      }
+      // Otherwise, wrap network errors
+      throw new Error(error.message || 'Network error. Please check your connection.');
     }
   }
 
@@ -255,6 +264,78 @@ class ApiService {
         'Accept': 'application/json',
       }
     });
+  }
+  // Export methods
+  async exportPermohonanExcel(params = {}) {
+    // Remove undefined/null parameters
+    const cleanParams = Object.entries(params).reduce((acc, [key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+    
+    const queryString = new URLSearchParams(cleanParams).toString();
+    const url = `${apiConfig.baseURL}/permohonan/export/excel${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gagal export Excel: ${errorText}`);
+    }
+    
+    // Download file
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `Laporan_Permohonan_${new Date().toISOString().split('T')[0]}.xlsx`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+    
+    return { success: true };
+  }
+
+  async exportPermohonanPdf(params = {}) {
+    // Remove undefined/null parameters
+    const cleanParams = Object.entries(params).reduce((acc, [key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        acc[key] = value;
+      }
+      return acc;
+    }, {});
+    
+    const queryString = new URLSearchParams(cleanParams).toString();
+    const url = `${apiConfig.baseURL}/permohonan/export/pdf${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: getAuthHeaders(),
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Gagal export PDF: ${errorText}`);
+    }
+    
+    // Download file
+    const blob = await response.blob();
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = `Laporan_Permohonan_${new Date().toISOString().split('T')[0]}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(downloadUrl);
+    
+    return { success: true };
   }
 }
 
