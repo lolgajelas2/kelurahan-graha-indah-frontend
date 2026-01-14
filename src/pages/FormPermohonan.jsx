@@ -141,14 +141,24 @@ const FormPermohonan = () => {
       delete newFiles[fileType];
       return newFiles;
     });
-  };
-  const handleSubmit = async (e) => {
+  };  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Check for validation errors
     const hasErrors = Object.values(validationErrors).some(error => error !== '');
     if (hasErrors) {
       toast.error('Mohon perbaiki data yang tidak valid');
+      return;
+    }
+
+    // Validate all required files are uploaded
+    const requiredFilesCount = serviceData.persyaratan.length;
+    const uploadedFilesCount = Object.keys(files).length;
+    
+    if (uploadedFilesCount < requiredFilesCount) {
+      toast.error(`Anda harus mengupload semua berkas persyaratan (${uploadedFilesCount}/${requiredFilesCount} file)`, {
+        duration: 4000
+      });
       return;
     }
 
@@ -493,18 +503,19 @@ const FormPermohonan = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-            </div>
-
-            {/* File Upload Section */}
+            </div>            {/* File Upload Section */}
             <div>
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Upload Berkas Persyaratan</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">Upload Berkas Persyaratan</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                <span className="text-red-600 font-medium">*</span> Semua berkas wajib diupload
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {serviceData.persyaratan.map((requirement, index) => {
                   const fileKey = `req_${index}`;
                   return (
                     <div key={index} className="border border-gray-300 rounded-lg p-4">
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        {requirement}
+                        {requirement} <span className="text-red-600">*</span>
                       </label>
                       {!files[fileKey] ? (
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
