@@ -198,15 +198,14 @@ const AdminDashboard = () => {
         <div className="bg-white rounded shadow border">
           <div className="px-6 py-4 border-b">
             <h3 className="font-semibold">Permohonan Terbaru</h3>
-          </div>
-          <div className="p-6 space-y-4">
+          </div>          <div className="p-6 space-y-4">
             {recentApplications.length === 0
               ? <p className="text-gray-500">Belum ada permohonan</p>
               : recentApplications.map(app => (
                 <div key={app.id} className="flex justify-between items-center bg-gray-50 p-4 rounded">
                   <div>
                     <p className="font-medium">{app.nama}</p>
-                    <p className="text-sm text-gray-600">{app.layanan.nama}</p>
+                    <p className="text-sm text-gray-600">{app.layanan?.nama || 'Layanan tidak tersedia'}</p>
                     <p className="text-xs text-gray-500">{new Date(app.created_at).toLocaleDateString('id-ID')}</p>
                   </div>
                   <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(app.status)}`}>
