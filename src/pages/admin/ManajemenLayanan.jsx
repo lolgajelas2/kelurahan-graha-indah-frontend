@@ -121,24 +121,47 @@ const ManajemenLayanan = () => {
     } catch (error) {
       toast.error('Terjadi kesalahan: ' + (error.message || error));
     }
-  };
-
-  // Hapus layanan dengan API
-  const handleDelete = (id) => {
+  };  // Hapus layanan dengan API
+  const handleDelete = async (id) => {
     const service = services.find(s => s.id === id);
     if (!service) return;
     
     if (window.confirm(`Apakah Anda yakin ingin menghapus layanan "${service.nama}"?\n\nTindakan ini tidak dapat dibatalkan.`)) {
-      apiService.deleteLayanan(id)
-        .then(res => {
-          if (res.success) {
-            setServices(services.filter(s => s.id !== id));
-            toast.success('Layanan berhasil dihapus');
+      try {
+        const res = await apiService.deleteLayanan(id);
+        if (res.success) {
+          setServices(services.filter(s => s.id !== id));
+          
+          // Tampilkan pesan sesuai dengan info dari backend
+          if (res.info) {
+            toast.success(res.message + '\n' + res.info, { duration: 5000 });
           } else {
-            toast.error('Gagal menghapus layanan');
+            toast.success(res.message);
           }
-        })
-        .catch(() => toast.error('Terjadi kesalahan saat menghapus layanan'));
+        } else {
+          toast.error(res.message || 'Gagal menghapus layanan');
+        }
+      } catch (error) {
+        // Handle error dari response
+        const errorMessage = error.data?.message || error.message || 'Terjadi kesalahan saat menghapus layanan';
+        const errorData = error.data?.data;
+        
+        // Jika layanan sedang digunakan, tampilkan pesan yang lebih detail
+        if (error.status === 422 && errorData?.total_permohonan_aktif) {
+          toast.error(
+            `❌ ${errorMessage}\n\n⚠️ Ada ${errorData.total_permohonan_aktif} permohonan yang sedang diproses menggunakan layanan ini.\n\nSilakan selesaikan atau tolak permohonan tersebut terlebih dahulu.`, 
+            { 
+              duration: 7000,
+              style: {
+                maxWidth: '550px',
+                whiteSpace: 'pre-line'
+              }
+            }
+          );
+        } else {
+          toast.error(errorMessage, { duration: 5000 });
+        }
+      }
     }
   };
 
